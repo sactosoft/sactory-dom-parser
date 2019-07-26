@@ -1,0 +1,31 @@
+{
+	"name": "sactory-dom-parser",
+	"version": "0.1.0",
+	"description": "",
+	"scripts": {
+		"dist": "gulp dist"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/sactory/sactory-dom-parser.git"
+	},
+	"keywords": [
+		"sactory",
+		"dom",
+		"html",
+		"parser"
+	],
+	"author": "Mark White",
+	"license": "MIT",
+	"bugs": {
+		"url": "https://github.com/sactory/sactory-dom-parser/issues"
+	},
+	"homepage": "https://github.com/sactory/sactory-dom-parser#readme",
+	"devDependencies": {
+		"gulp": "^4.0.2",
+		"gulp-rename": "^1.4.0",
+		"gulp-replace": "^1.0.0",
+		"gulp-sourcemaps": "^2.6.5",
+		"gulp-uglify": "^3.0.2"
+	}
+}
