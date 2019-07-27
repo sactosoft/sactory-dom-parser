@@ -29,23 +29,26 @@
 				node.removeAttribute(name);
 				var start = name.indexOf("[");
 				if(start != -1) {
+					var closing, set;
 					if(name.charAt(start + 1) == "[") {
-						var length = name.substr(start + 2).indexOf("]]");
-						if(length != -1) {
-							name = name.substring(0, start) + Sactory.config.shortcut[name.substr(start + 2, length)] + name.substr(start + length + 4);
-						} else {
-							throw new Error("Clsing brackets not found.");
-						}
+						closing = "]]";
+						set = function(key){
+							return Sactory.config.shortcut[key];
+						};
 					} else {
-						var length = name.substr(start + 1).indexOf("]");
-						if(length != -1) {
-							name = name.substring(0, start) + data[name.substr(start + 1, length)] + name.substr(start + length + 2);
-						} else {
-							throw new Error("Clsing brackets not found.");
-						}
+						closing = "]";
+						set = function(key){
+							return data[key];
+						};
+					}
+					var length = name.substr(start + closing.length).indexOf(closing);
+					if(length != -1) {
+						name = name.substring(0, start) + set(name.substr(start + closing.length, length)) + name.substr(start + length + closing.length * 2);
+					} else {
+						throw new Error("Closing brackets not found in expression '" + name + "'.");
 					}
 				}
-				var value = data.hasOwnProperty(attr.value) ? data[attr.value] : parseValue(attr.value);
+				var value = Object.prototype.hasOwnProperty.call(data, attr.value) ? data[attr.value] : parseValue(attr.value);
 				if(type == 5) {
 					var oname = name = name.substr(1);
 					var column = name.indexOf(":");
@@ -74,7 +77,7 @@
 							attributes.push([type, 0, "type"]);
 						case "form":
 						case "value":
-							forms.push([info, value, data.hasOwnProperty(attr.value) ? function(value){
+							forms.push([info, value, Object.prototype.hasOwnProperty.call(data, attr.value) ? function(value){
 								data[attr.value] = value;
 							} : function(){}]);
 							break;
@@ -92,7 +95,7 @@
 							a = wattributes;
 						}
 					}
-					attributes.push([value, type, name]);
+					a.push([value, type, name]);
 				}
 			}
 		});
@@ -159,7 +162,7 @@
 						index++;
 					} else {
 						var key = text.substr(index + 2, length);
-						if(data.hasOwnProperty(key)) {
+						if(Object.prototype.hasOwnProperty.call(data, key)) {
 							var value = data[key];
 							var pre = text.substring(0, index);
 							if(pre.length) result.push(pre);
@@ -224,7 +227,7 @@
 		var scripts = Array.prototype.slice.call(document.querySelectorAll("script[src]"), 0);
 		for(var i in scripts) {
 			var script = scripts[i];
-			if(script.src.indexOf("/sactory-dom-parser.") != -1 && script.src.slice(0, -9) == "#autoload") {
+			if(script.src.indexOf("/sactory-dom-parser.") != -1 && script.src.slice(-9) == "#autoload") {
 				parse();
 				return;
 			}
