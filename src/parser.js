@@ -6,11 +6,32 @@
 	}
 }(function(Sactory){
 
+	var DEFAULTS = ["", true, true, undefined, true, ""];
+
+	var NONE = Sactory.Const.BUILDER_TYPE_NONE;
+	var PROP = Sactory.Const.BUILDER_TYPE_PROP;
+	var CONCAT = Sactory.Const.BUILDER_TYPE_CONCAT;
+	var ON = Sactory.Const.BUILDER_TYPE_ON;
+	var WIDGET = Sactory.Const.BUILDER_TYPE_WIDGET
+	var E_WIDGET = Sactory.Const.BUILDER_TYPE_E_WIDGET;
+	var SCT = 9;
+
+	var TYPES = [];
+	TYPES[NONE] = ':';
+	TYPES[PROP] = '@';
+	TYPES[CONCAT] = '~';
+	TYPES[ON] = '+';
+	TYPES[WIDGET] = '$';
+	TYPES[SCT] = '*';
+
 	function parseValue(value) {
-		if(value.length == 0 || value == "true") {
+		if(value == "true") {
 			return true;
 		} else if(value == "false") {
 			return false;
+		} else if(value.charAt(0) == "{" && value.charAt(value.length - 1) == "}") {
+			eval("function ret()" + value);
+			return ret;
 		} else {
 			var num = +value;
 			return isNaN(num) ? value : num;
@@ -21,12 +42,14 @@
 		var attributes = [];
 		var wattributes = [];
 		var forms = [];
-		var newCallbacks = [];
+		var callback = false;
 		Array.prototype.slice.call(node.attributes, 0).forEach(function(attr){
 			var name = attr.name;
-			var type = [':', '@', '~', '+', '$', '*'].indexOf(name.charAt(0));
+			var optional = attr.name.charAt(0) == "?";
+			var type = TYPES.indexOf(name.charAt(+optional));
 			if(type != -1) {
 				node.removeAttribute(name);
+				var oname = name = name.substr(1 + optional);
 				var start = name.indexOf("[");
 				if(start != -1) {
 					var closing, set;
@@ -48,18 +71,17 @@
 						throw new Error("Closing brackets not found in expression '" + name + "'.");
 					}
 				}
-				var value = Object.prototype.hasOwnProperty.call(data, attr.value) ? data[attr.value] : parseValue(attr.value);
-				if(type == 5) {
-					var oname = name = name.substr(1);
+				var value = attr.value.length ? (Object.prototype.hasOwnProperty.call(data, attr.value) ? data[attr.value] : parseValue(attr.value)) : DEFAULTS[type];
+				if(type == SCT) {
 					var column = name.indexOf(":");
 					var type = column == -1 ? name : name.substring(0, column);
 					var info = column == -1 ? "" : name.substr(column);
 					switch(type) {
 						case "next":
-							attributes.push([attr.value + Sactory.nextId(), 0, info.substr(1)]);
+							attributes.push([value + Sactory.nextId(), NONE, info.substr(1)]);
 							break;
 						case "prev":
-							attributes.push([attr.value + Sactory.prevId(), 0, info.substr(1)]);
+							attributes.push([value + Sactory.prevId(), NONE, info.substr(1)]);
 							break;
 						case "number":
 							info += ":number";
@@ -74,7 +96,7 @@
 						case "range":
 						case "text":
 						case "time":
-							attributes.push([type, 0, "type"]);
+							attributes.push([type, NONE, "type"]);
 						case "form":
 						case "value":
 							forms.push([info, value, Object.prototype.hasOwnProperty.call(data, attr.value) ? function(value){
@@ -85,17 +107,19 @@
 							throw new Error("Unknown attribute '*" + oname + "'.");
 					}
 				} else {
-					name = name.substr(1);
 					var a = attributes;
-					if(type == 4) {
+					if(type == WIDGET) {
 						if(name.charAt(0) == "$") {
 							name = name.substr(1);
-							type = 5;
+							type = E_WIDGET;
 						} else {
 							a = wattributes;
 						}
 					}
-					a.push([value, type, name]);
+					a.push([value, type, name, optional]);
+					if(type == ON && name.substring(0, 6) == "parsed") {
+						callback = true;
+					}
 				}
 			}
 		});
@@ -127,13 +151,10 @@
 			forms.unshift(context);
 			Sactory.forms.apply(null, forms);
 		}
-		// add new callbacks to list of callbacks
-		newCallbacks.forEach(function(callback){
-			callbacks.push({
-				element: node,
-				listener: callback
-			});
-		});
+		// add callback if needed
+		if(callback) {
+			callbacks.push(node);
+		}
 		// parse children
 		Array.prototype.slice.call(node.childNodes, 0).forEach(function(child){
 			if(child.nodeType == Node.ELEMENT_NODE) {
@@ -216,21 +237,16 @@
 		Sactory.ready(function(){
 			var callbacks = [];
 			parseElement(node, reduce(data), callbacks);
-			callbacks.forEach(function(callback){
-				callback.listener.call(callback.element, {});
+			callbacks.forEach(function(element){
+				element.__builder.dispatchEvent("parsed");
 			});
 		});
 	}
 	
 	Sactory.ready(function(){
 		// check auto-parse
-		var scripts = Array.prototype.slice.call(document.querySelectorAll("script[src]"), 0);
-		for(var i in scripts) {
-			var script = scripts[i];
-			if(script.src.indexOf("/sactory-dom-parser.") != -1 && script.src.slice(-9) == "#autoload") {
-				parse();
-				return;
-			}
+		if(document.querySelector("script[src*='sactory-dom-parser'][src$='#autoload']")) {
+			parse();
 		}
 	});
 	
