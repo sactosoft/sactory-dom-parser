@@ -1,28 +1,62 @@
 !function(parser){
 	if(typeof define == "function" && define.amd) {
-		define(["sactory"], parser);
+		define(["sactory", "exports"], parser);
 	} else {
-		Sactory.dom = parser(Sactory);
+		parser(Sactory, Sactory.dom = {});
 	}
-}(function(Sactory){
-
-	var DEFAULTS = ["", true, true, undefined, true, ""];
+}(function(Sactory, exports){
 
 	var NONE = Sactory.Const.BUILDER_TYPE_NONE;
 	var PROP = Sactory.Const.BUILDER_TYPE_PROP;
 	var CONCAT = Sactory.Const.BUILDER_TYPE_CONCAT;
 	var ON = Sactory.Const.BUILDER_TYPE_ON;
 	var WIDGET = Sactory.Const.BUILDER_TYPE_WIDGET
-	var E_WIDGET = Sactory.Const.BUILDER_TYPE_E_WIDGET;
-	var SCT = 9;
+	var E_WIDGET = Sactory.Const.BUILDER_TYPE_EXTEND_WIDGET;
+	var SCT = 8;
+	var CT = 9;
+
+	var DEFAULTS = [];
+	DEFAULTS[PROP] = true;
+	DEFAULTS[CONCAT] = true;
+	DEFAULTS[ON] = null;
+	DEFAULTS[WIDGET] = true;
 
 	var TYPES = [];
-	TYPES[NONE] = ':';
 	TYPES[PROP] = '@';
 	TYPES[CONCAT] = '~';
 	TYPES[ON] = '+';
 	TYPES[WIDGET] = '$';
 	TYPES[SCT] = '*';
+	TYPES[CT] = ':';
+
+	function parseName(name, data) {
+		var start = name.indexOf("[");
+		if(start != -1) {
+			var closing, set;
+			if(name.charAt(start + 1) == "[") {
+				closing = "]]";
+				set = function(key){
+					return Sactory.config.shortcut[key];
+				};
+			} else {
+				closing = "]";
+				set = function(key){
+					return data[key];
+				};
+			}
+			var length = name.substr(start + closing.length).indexOf(closing);
+			if(length != -1) {
+				var before = name.substring(0, start);
+				var value = set(name.substr(start + closing.length, length));
+				var after = name.substr(start + length + closing.length * 2);
+				return before.length || after.length ? before + value + after : value;
+			} else {
+				throw new Error("Closing brackets not found in expression '" + name + "'.");
+			}
+		} else {
+			return name;
+		}
+	}
 
 	function parseValue(value) {
 		if(value == "true") {
@@ -38,75 +72,77 @@
 		}
 	}
 	
-	function parseElement(node, data, callbacks) {
+	function parseElement(node, data, ref, callbacks) {
 		var attributes = [];
 		var wattributes = [];
 		var forms = [];
+		var refElement, refWidget;
 		var callback = false;
 		Array.prototype.slice.call(node.attributes, 0).forEach(function(attr){
 			var name = attr.name;
 			var optional = attr.name.charAt(0) == "?";
 			var type = TYPES.indexOf(name.charAt(+optional));
-			if(type != -1) {
-				node.removeAttribute(name);
-				var oname = name = name.substr(1 + optional);
-				var start = name.indexOf("[");
-				if(start != -1) {
-					var closing, set;
-					if(name.charAt(start + 1) == "[") {
-						closing = "]]";
-						set = function(key){
-							return Sactory.config.shortcut[key];
-						};
-					} else {
-						closing = "]";
-						set = function(key){
-							return data[key];
-						};
-					}
-					var length = name.substr(start + closing.length).indexOf(closing);
-					if(length != -1) {
-						name = name.substring(0, start) + set(name.substr(start + closing.length, length)) + name.substr(start + length + closing.length * 2);
-					} else {
-						throw new Error("Closing brackets not found in expression '" + name + "'.");
-					}
-				}
-				var value = attr.value.length ? (Object.prototype.hasOwnProperty.call(data, attr.value) ? data[attr.value] : parseValue(attr.value)) : DEFAULTS[type];
-				if(type == SCT) {
-					var column = name.indexOf(":");
-					var type = column == -1 ? name : name.substring(0, column);
-					var info = column == -1 ? "" : name.substr(column);
-					switch(type) {
-						case "next":
-							attributes.push([value + Sactory.nextId(), NONE, info.substr(1)]);
+			switch(type) {
+				case CT:
+					node.removeAttribute(name);
+					switch(name.substr(1 + optional)) {
+						case "ref":
+							refElement = attr.value;
 							break;
-						case "prev":
-							attributes.push([value + Sactory.prevId(), NONE, info.substr(1)]);
+						case "ref-widget":
+							refWidget = attr.value;
 							break;
-						case "number":
-							info += ":number";
-						case "checkbox":
-						case "color":
-						case "date":
-						case "email":
-						case "file":
-						case "hidden":
-						case "password":
-						case "radio":
-						case "range":
-						case "text":
-						case "time":
-							attributes.push([type, NONE, "type"]);
-						case "form":
-						case "value":
-							forms.push([info, value, Object.prototype.hasOwnProperty.call(data, attr.value) ? function(value){
-								data[attr.value] = value;
-							} : function(){}]);
-							break;
-						default:
-							throw new Error("Unknown attribute '*" + oname + "'.");
 					}
-				} else {
+					break;
+				case SCT:
+					node.removeAttribute(name);
+					var oname = name = name.substr(1 + optional);
+					if(type == SCT) {
+						var column = name.indexOf(":");
+						var pre = column == -1 ? name : name.substring(0, column);
+						var info = column == -1 ? "" : parseName(name.substr(column));
+						switch(pre) {
+							case "next":
+								attributes.push([attr.value + Sactory.nextId(), NONE, info.substr(1)]);
+								break;
+							case "prev":
+								attributes.push([attr.value + Sactory.prevId(), NONE, info.substr(1)]);
+								break;
+							case "number":
+								info += ":number";
+							case "checkbox":
+							case "color":
+							case "date":
+							case "email":
+							case "file":
+							case "hidden":
+							case "password":
+							case "radio":
+							case "range":
+							case "text":
+							case "time":
+								attributes.push([pre, NONE, "type"]);
+							case "form":
+							case "value":
+								var has = Object.prototype.hasOwnProperty.call(data, attr.value);
+								forms.push([info, has ? data[attr.value] : parseValue(attr.value), has ? function(value){
+									data[attr.value] = value;
+								} : function(){}]);
+								break;
+							default:
+								throw new Error("Unknown attribute '*" + oname + "'.");
+						}
+					}
+					break;
+				case -1:
+					if(Object.prototype.hasOwnProperty.call(data, attr.value)) {
+						node.removeAttribute(name);
+						attributes.push([data[attr.value], NONE, attr.name, optional]);
+					}
+					break;
+				default:
+					node.removeAttribute(name);
+					name = name.substr(1 + optional);
 					var a = attributes;
 					if(type == WIDGET) {
 						if(name.charAt(0) == "$") {
@@ -116,11 +152,11 @@
 							a = wattributes;
 						}
 					}
-					a.push([value, type, name, optional]);
+					name = parseName(name);
+					a.push([attr.value.length ? (Object.prototype.hasOwnProperty.call(data, attr.value) ? data[attr.value] : parseValue(attr.value)) : DEFAULTS[type], type, name, optional]);
 					if(type == ON && name.substring(0, 6) == "parsed") {
 						callback = true;
 					}
-				}
 			}
 		});
 		var tagName = node.tagName.toLowerCase();
@@ -151,6 +187,13 @@
 			forms.unshift(context);
 			Sactory.forms.apply(null, forms);
 		}
+		// set refs
+		if(refElement) {
+			ref[refElement] = node;
+		}
+		if(refWidget) {
+			ref[refWidget] = Sactory.widget(node);
+		}
 		// add callback if needed
 		if(callback) {
 			callbacks.push(node);
@@ -158,7 +201,7 @@
 		// parse children
 		Array.prototype.slice.call(node.childNodes, 0).forEach(function(child){
 			if(child.nodeType == Node.ELEMENT_NODE) {
-				parseElement(child, data, callbacks);
+				parseElement(child, data, ref, callbacks);
 			} else if(child.nodeType == Node.TEXT_NODE) {
 				parseText(child, data);
 			}
@@ -229,30 +272,39 @@
 		return ret;
 	}
 	
-	function parse(node, data) {
+	exports.parse = function(node, data) {
+		var ref = {};
 		if(arguments.length <= 1) {
 			data = node || {};
 			node = document.documentElement;
 		}
 		Sactory.ready(function(){
 			var callbacks = [];
-			parseElement(node, reduce(data), callbacks);
+			parseElement(node, reduce(data), ref, callbacks);
 			callbacks.forEach(function(element){
 				element.__builder.dispatchEvent("parsed");
 			});
 		});
-	}
+		return ref;
+	};
+
+	exports.parseHead = function(data){
+		return exports.parse(document.head, data);
+	};
+
+	exports.parseBody = function(data){
+		return exports.parse(document.body, data);
+	};
 	
 	Sactory.ready(function(){
 		// check auto-parse
 		if(document.querySelector("script[src*='sactory-dom-parser'][src$='#autoload']")) {
-			parse();
+			exports.ref = exports.parse();
 		}
 	});
-	
-	return {
-		parse: parse,
-		version: "%version%"
-	};
+
+	Object.defineProperty(exports, "version", {
+		value: "%version%"
+	});
 	
 });
