@@ -271,6 +271,8 @@
 		reduceImpl([], ret, obj);
 		return ret;
 	}
+
+	exports.ref = {};
 	
 	exports.parse = function(node, data) {
 		var ref = {};
@@ -284,6 +286,9 @@
 			callbacks.forEach(function(element){
 				element.__builder.dispatchEvent("parsed");
 			});
+			for(var key in ref) {
+				exports.ref[key] = ref[key];
+			}
 		});
 		return ref;
 	};
@@ -299,7 +304,7 @@
 	Sactory.ready(function(){
 		// check auto-parse
 		if(document.querySelector("script[src*='sactory-dom-parser'][src$='#autoload']")) {
-			exports.ref = exports.parse();
+			exports.parse();
 		}
 	});
 
