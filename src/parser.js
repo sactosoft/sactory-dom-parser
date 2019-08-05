@@ -103,10 +103,10 @@
 						var info = column == -1 ? "" : parseName(name.substr(column));
 						switch(pre) {
 							case "next":
-								attributes.push([attr.value + Sactory.nextId(), NONE, info.substr(1)]);
+								attributes.push([NONE, info.substr(1), attr.value + Sactory.nextId()]);
 								break;
 							case "prev":
-								attributes.push([attr.value + Sactory.prevId(), NONE, info.substr(1)]);
+								attributes.push([NONE, info.substr(1), attr.value + Sactory.prevId()]);
 								break;
 							case "number":
 								info += ":number";
@@ -121,7 +121,7 @@
 							case "range":
 							case "text":
 							case "time":
-								attributes.push([pre, NONE, "type"]);
+								attributes.push([NONE, "type", pre]);
 							case "form":
 							case "value":
 								var has = Object.prototype.hasOwnProperty.call(data, attr.value);
@@ -137,7 +137,7 @@
 				case -1:
 					if(Object.prototype.hasOwnProperty.call(data, attr.value)) {
 						node.removeAttribute(name);
-						attributes.push([data[attr.value], NONE, attr.name, optional]);
+						attributes.push([NONE, attr.name, data[attr.value], optional]);
 					}
 					break;
 				default:
@@ -153,7 +153,7 @@
 						}
 					}
 					name = parseName(name);
-					a.push([attr.value.length ? (Object.prototype.hasOwnProperty.call(data, attr.value) ? data[attr.value] : parseValue(attr.value)) : DEFAULTS[type], type, name, optional]);
+					a.push([type, name, attr.value.length ? (Object.prototype.hasOwnProperty.call(data, attr.value) ? data[attr.value] : parseValue(attr.value)) : DEFAULTS[type], optional]);
 					if(type == ON && name.substring(0, 6) == "parsed") {
 						callback = true;
 					}
@@ -163,7 +163,7 @@
 		var context = {scope: data};
 		if(Sactory.hasWidget(tagName)) {
 			// replace with widget
-			Sactory.update(context, {tagName: tagName, 2: wattributes});
+			Sactory.create(context, tagName, [wattributes]);
 			// transfer attributes
 			Array.prototype.slice.call(node.attributes, 0).forEach(function(attr){
 				context.element.setAttribute(attr.name, attr.value);
@@ -180,7 +180,7 @@
 		}
 		// apply attributes
 		if(attributes.length) {
-			Sactory.update(context, {2: attributes});
+			Sactory.update(context, [attributes]);
 		}
 		// apply forms
 		if(forms.length) {

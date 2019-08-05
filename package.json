@@ -1,7 +1,7 @@
 {
 	"name": "@sactory/dom-parser",
 	"description": "Parse the DOM to find and replace Sactory attributes and widgets",
-	"version": "0.2.0",
+	"version": "0.3.0",
 	"description": "",
 	"scripts": {
 		"dist": "gulp dist"
